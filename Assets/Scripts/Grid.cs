@@ -24,7 +24,7 @@ public class Grid : MonoBehaviour {
 	public GameObject backgroundPrefab;
 
 	private Dictionary<PieceType, GameObject> piecePrefabDict;
-    private GameObject[,] gamePieces;
+    private GamePiece[,] gamePieces;
 
 	// Use this for initialization
 	void Start () {
@@ -36,17 +36,21 @@ public class Grid : MonoBehaviour {
 			}
 		}
 
-        gamePieces = new GameObject[xDim, yDim];
+        gamePieces = new GamePiece[xDim, yDim];
         for (int x = 0; x < xDim; x++) {
 			for (int y = 0; y < yDim; y++) {
                 // Background
 				GameObject background = (GameObject)Instantiate (backgroundPrefab, GetWorldPosition(x, y), Quaternion.identity);
 				background.transform.parent = transform;
 
-                // Game Piece
-                gamePieces[x, y] = (GameObject)Instantiate(piecePrefabDict[PieceType.NORMAL], GetWorldPosition(x, y), Quaternion.identity);
-                gamePieces[x, y].name = "Piece("+x+","+y+")";
-                gamePieces[x, y].transform.parent = transform;
+                // Game Piece Prefab
+                GameObject newPiece = (GameObject)Instantiate(piecePrefabDict[PieceType.NORMAL], GetWorldPosition(x, y), Quaternion.identity);
+                newPiece.name = "Piece("+x+","+y+")";
+                newPiece.transform.parent = transform;
+
+                // Custom Game Object
+                gamePieces[x, y] = newPiece.GetComponent<GamePiece>(); // Get the custom game piece class from the prefab!
+                gamePieces[x, y].Init(x, y, this, PieceType.NORMAL);
             }
 		}
     }
