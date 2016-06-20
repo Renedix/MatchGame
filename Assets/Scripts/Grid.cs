@@ -24,6 +24,7 @@ public class Grid : MonoBehaviour {
 	public GameObject backgroundPrefab;
 
 	private Dictionary<PieceType, GameObject> piecePrefabDict;
+    private GameObject[,] gamePieces;
 
 	// Use this for initialization
 	void Start () {
@@ -35,16 +36,23 @@ public class Grid : MonoBehaviour {
 			}
 		}
 
-		for (int x = 0; x < xDim; x++) {
+        gamePieces = new GameObject[xDim, yDim];
+        for (int x = 0; x < xDim; x++) {
 			for (int y = 0; y < yDim; y++) {
-				GameObject background = (GameObject)Instantiate (backgroundPrefab, new Vector3 (x, y, 0), Quaternion.identity);
+                // Background
+				GameObject background = (GameObject)Instantiate (backgroundPrefab, GetWorldPosition(x, y), Quaternion.identity);
 				background.transform.parent = transform;
-			}
+
+                // Game Piece
+                gamePieces[x, y] = (GameObject)Instantiate(piecePrefabDict[PieceType.NORMAL], GetWorldPosition(x, y), Quaternion.identity);
+                gamePieces[x, y].name = "Piece("+x+","+y+")";
+                gamePieces[x, y].transform.parent = transform;
+            }
 		}
-	}
+    }
 	
-	// Update is called once per frame
-	void Update () {
-	
-	}
+	Vector3 GetWorldPosition(int x, int y)
+    {
+        return new Vector3(this.transform.position.x-xDim/2.0f+x, this.transform.position.y + yDim / 2.0f - y, 0);
+    }
 }
