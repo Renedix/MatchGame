@@ -44,18 +44,24 @@ public class Grid : MonoBehaviour {
 				background.transform.parent = transform;
 
                 // Game Piece Prefab
-                GameObject newPiece = (GameObject)Instantiate(piecePrefabDict[PieceType.NORMAL], GetWorldPosition(x, y), Quaternion.identity);
+                GameObject newPiece = (GameObject)Instantiate(piecePrefabDict[PieceType.NORMAL], Vector3.zero, Quaternion.identity);
                 newPiece.name = "Piece("+x+","+y+")";
                 newPiece.transform.parent = transform;
 
                 // Custom Game Object
                 gamePieces[x, y] = newPiece.GetComponent<GamePiece>(); // Get the custom game piece class from the prefab!
                 gamePieces[x, y].Init(x, y, this, PieceType.NORMAL);
+
+                if (gamePieces[x, y].IsMovable())
+                    gamePieces[x, y].MovableComponent.Move(x, y);
+
+                if (gamePieces[x, y].IsColored())
+                    gamePieces[x, y].ColoredComponent.SetColor((ColoredPiece.ColorType)Random.Range(0, gamePieces[x, y].ColoredComponent.NumberOfColors()));
             }
 		}
     }
 	
-	Vector3 GetWorldPosition(int x, int y)
+	public Vector3 GetWorldPosition(int x, int y)
     {
         return new Vector3(this.transform.position.x-xDim/2.0f+x, this.transform.position.y + yDim / 2.0f - y, 0);
     }
