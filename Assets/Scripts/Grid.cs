@@ -6,6 +6,7 @@ public class Grid : MonoBehaviour {
 
 	public enum PieceType
 	{
+        EMPTY,
 		NORMAL,
 		COUNT,
 	};
@@ -43,20 +44,7 @@ public class Grid : MonoBehaviour {
 				GameObject background = (GameObject)Instantiate (backgroundPrefab, GetWorldPosition(x, y), Quaternion.identity);
 				background.transform.parent = transform;
 
-                // Game Piece Prefab
-                GameObject newPiece = (GameObject)Instantiate(piecePrefabDict[PieceType.NORMAL], Vector3.zero, Quaternion.identity);
-                newPiece.name = "Piece("+x+","+y+")";
-                newPiece.transform.parent = transform;
-
-                // Custom Game Object
-                gamePieces[x, y] = newPiece.GetComponent<GamePiece>(); // Get the custom game piece class from the prefab!
-                gamePieces[x, y].Init(x, y, this, PieceType.NORMAL);
-
-                if (gamePieces[x, y].IsMovable())
-                    gamePieces[x, y].MovableComponent.Move(x, y);
-
-                if (gamePieces[x, y].IsColored())
-                    gamePieces[x, y].ColoredComponent.SetColor((ColoredPiece.ColorType)Random.Range(0, gamePieces[x, y].ColoredComponent.NumberOfColors()));
+                SpawnGamePiece(x, y, PieceType.EMPTY);
             }
 		}
     }
@@ -64,5 +52,17 @@ public class Grid : MonoBehaviour {
 	public Vector3 GetWorldPosition(int x, int y)
     {
         return new Vector3(this.transform.position.x-xDim/2.0f+x, this.transform.position.y + yDim / 2.0f - y, 0);
+    }
+
+    private GamePiece SpawnGamePiece(int x, int y, PieceType pieceType)
+    {
+        GameObject newPiece = (GameObject)Instantiate(piecePrefabDict[pieceType], GetWorldPosition(x, y), Quaternion.identity);
+        newPiece.name = "Piece(" + x + "," + y + ")";
+        newPiece.transform.parent = transform;
+
+        gamePieces[x, y] = newPiece.GetComponent<GamePiece>();
+        gamePieces[x, y].Init(x, y, this, pieceType);
+
+        return gamePieces[x, y];
     }
 }
