@@ -47,6 +47,8 @@ public class Grid : MonoBehaviour {
                 SpawnGamePiece(x, y, PieceType.EMPTY);
             }
 		}
+
+        fillBoard();
     }
 	
 	public Vector3 GetWorldPosition(int x, int y)
@@ -57,12 +59,70 @@ public class Grid : MonoBehaviour {
     private GamePiece SpawnGamePiece(int x, int y, PieceType pieceType)
     {
         GameObject newPiece = (GameObject)Instantiate(piecePrefabDict[pieceType], GetWorldPosition(x, y), Quaternion.identity);
-        newPiece.name = "Piece(" + x + "," + y + ")";
+        // This new piece is a child of the grid
         newPiece.transform.parent = transform;
 
         gamePieces[x, y] = newPiece.GetComponent<GamePiece>();
         gamePieces[x, y].Init(x, y, this, pieceType);
 
         return gamePieces[x, y];
+    }
+
+    private void fillBoard()
+    {
+        // Continue to fill the board until no piece has moved
+        while (fillBoardStep()) { }
+    }
+
+    private bool fillBoardStep()
+    {
+        bool pieceMoved = false;
+
+        // Go through each coordinate and move it down (if possible)
+        for(int y = yDim - 2; y >= 0; y--)
+        {
+            for(int x = 0; x < xDim; x++)
+            {
+                GamePiece piece = gamePieces[x, y];
+                if (piece.IsMovable())
+                {
+                    GamePiece pieceBelow = gamePieces[x, y + 1];
+                    if (pieceBelow.PieceType == PieceType.EMPTY)
+                    {
+                        piece.MovableComponent.Move(x, y + 1);
+                        gamePieces[x, y + 1] = piece;
+                        SpawnGamePiece(x, y, PieceType.EMPTY);
+                        pieceMoved = true;
+                    }
+                }
+            }
+        }
+
+        // Spawn new pieces
+        for (int x = 0; x < xDim; x++)
+        {
+            GamePiece topGamePiece = gamePieces[x, 0];
+
+            if (topGamePiece.PieceType == PieceType.EMPTY)
+            {
+                // Spawn new piece
+                GameObject newPiece = (GameObject)Instantiate(piecePrefabDict[PieceType.NORMAL], GetWorldPosition(x, -1), Quaternion.identity);
+                // This new piece is a child of the grid
+                newPiece.transform.parent = transform;
+
+                // Set the game piece instance on the grid
+                gamePieces[x, 0] = newPiece.GetComponent<GamePiece>();
+                // Initialize the game object itself
+                gamePieces[x, 0].Init(x, -1, this, PieceType.NORMAL);
+                // Set to random color
+                gamePieces[x, 0].ColoredComponent.SetColor((ColoredPiece.ColorType)Random.Range(0, gamePieces[x, 0].ColoredComponent.NumberOfColors()));
+                // Move the piece to the first row
+                gamePieces[x, 0].MovableComponent.Move(x, 0);
+
+                pieceMoved = true;
+            }
+        }
+
+        return pieceMoved;
     }
 }
