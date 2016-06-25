@@ -20,6 +20,7 @@ public class Grid : MonoBehaviour {
 
 	public int xDim;
 	public int yDim;
+    public float dropSpeed;
 
 	public PiecePrefab[] piecePrefabs;
 	public GameObject backgroundPrefab;
@@ -48,7 +49,7 @@ public class Grid : MonoBehaviour {
             }
 		}
 
-        fillBoard();
+        StartCoroutine(fillBoard());
     }
 	
 	public Vector3 GetWorldPosition(int x, int y)
@@ -68,10 +69,12 @@ public class Grid : MonoBehaviour {
         return gamePieces[x, y];
     }
 
-    private void fillBoard()
+    IEnumerator fillBoard()
     {
         // Continue to fill the board until no piece has moved
-        while (fillBoardStep()) { }
+        while (fillBoardStep()) {
+            yield return new WaitForSeconds(dropSpeed);
+        }
     }
 
     private bool fillBoardStep()
@@ -89,7 +92,8 @@ public class Grid : MonoBehaviour {
                     GamePiece pieceBelow = gamePieces[x, y + 1];
                     if (pieceBelow.PieceType == PieceType.EMPTY)
                     {
-                        piece.MovableComponent.Move(x, y + 1);
+                        Destroy(pieceBelow.gameObject);
+                        piece.MovableComponent.Move(x, y + 1,dropSpeed);
                         gamePieces[x, y + 1] = piece;
                         SpawnGamePiece(x, y, PieceType.EMPTY);
                         pieceMoved = true;
@@ -105,6 +109,7 @@ public class Grid : MonoBehaviour {
 
             if (topGamePiece.PieceType == PieceType.EMPTY)
             {
+                Destroy(topGamePiece.gameObject);
                 // Spawn new piece
                 GameObject newPiece = (GameObject)Instantiate(piecePrefabDict[PieceType.NORMAL], GetWorldPosition(x, -1), Quaternion.identity);
                 // This new piece is a child of the grid
@@ -117,7 +122,7 @@ public class Grid : MonoBehaviour {
                 // Set to random color
                 gamePieces[x, 0].ColoredComponent.SetColor((ColoredPiece.ColorType)Random.Range(0, gamePieces[x, 0].ColoredComponent.NumberOfColors()));
                 // Move the piece to the first row
-                gamePieces[x, 0].MovableComponent.Move(x, 0);
+                gamePieces[x, 0].MovableComponent.Move(x, 0, dropSpeed);
 
                 pieceMoved = true;
             }
