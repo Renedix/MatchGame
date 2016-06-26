@@ -21,7 +21,7 @@ public class Grid : MonoBehaviour {
 
 	public int xDim;
 	public int yDim;
-    public float dropSpeed;
+    public float pieceMovement;
 
 	public PiecePrefab[] piecePrefabs;
 	public GameObject backgroundPrefab;
@@ -29,6 +29,9 @@ public class Grid : MonoBehaviour {
 	private Dictionary<PieceType, GameObject> piecePrefabDict;
     private GamePiece[,] gamePieces;
     private bool reverse = false;
+
+    private GamePiece pressPiece;
+    private GamePiece enterPiece;
 
 	// Use this for initialization
 	void Start () {
@@ -91,7 +94,7 @@ public class Grid : MonoBehaviour {
         // Continue to fill the board until no piece has moved
         while (fillBoardStep()) {
             reverse = !reverse;
-            yield return new WaitForSeconds(dropSpeed);
+            yield return new WaitForSeconds(pieceMovement);
         }
     }
 
@@ -118,7 +121,7 @@ public class Grid : MonoBehaviour {
                     if (pieceBelow.PieceType == PieceType.EMPTY)
                     {
                         Destroy(pieceBelow.gameObject);
-                        piece.MovableComponent.Move(x, y + 1,dropSpeed);
+                        piece.MovableComponent.Move(x, y + 1,pieceMovement);
                         gamePieces[x, y + 1] = piece;
                         SpawnGamePiece(x, y, PieceType.EMPTY);
                         pieceMoved = true;
@@ -151,7 +154,7 @@ public class Grid : MonoBehaviour {
                                     {
                                         // Fill It!
                                         Destroy(pieceBelow.gameObject);
-                                        piece.MovableComponent.Move(adjacentPiece.X, y + 1, dropSpeed);
+                                        piece.MovableComponent.Move(adjacentPiece.X, y + 1, pieceMovement);
                                         gamePieces[adjacentPiece.X, y + 1] = piece;
                                         SpawnGamePiece(x, y, PieceType.EMPTY);
                                         pieceMoved = true;
@@ -186,7 +189,7 @@ public class Grid : MonoBehaviour {
                 // Set to random color
                 gamePieces[x, 0].ColoredComponent.SetColor((ColoredPiece.ColorType)Random.Range(0, gamePieces[x, 0].ColoredComponent.NumberOfColors()));
                 // Move the piece to the first row
-                gamePieces[x, 0].MovableComponent.Move(x, 0, dropSpeed);
+                gamePieces[x, 0].MovableComponent.Move(x, 0, pieceMovement);
 
                 pieceMoved = true;
             }
@@ -194,4 +197,47 @@ public class Grid : MonoBehaviour {
 
         return pieceMoved;
     }
+
+
+    public bool IsAdjacent(GamePiece piece1, GamePiece piece2)
+    {
+        return (piece1.X == piece2.X && (piece1.Y == piece2.Y - 1 || piece1.Y == piece2.Y + 1))
+                ||
+                (piece1.Y == piece2.Y && (piece1.X == piece2.X - 1 || piece1.X == piece2.X + 1));
+    }
+
+    public void SwapPieces(GamePiece piece1, GamePiece piece2)
+    {
+        if (piece1.IsMovable() && piece2.IsMovable())
+        {
+            int piece1X = piece1.X;
+            int piece1Y = piece1.Y;
+
+            gamePieces[piece1X, piece1X] = piece2;
+            gamePieces[piece2.X, piece2.Y] = piece1;
+
+            piece1.MovableComponent.Move(piece2.X, piece2.Y, pieceMovement);
+            piece2.MovableComponent.Move(piece1X, piece1Y, pieceMovement);
+        }
+        
+    }
+
+    public void PressPiece(GamePiece gamePiece)
+    {
+        pressPiece = gamePiece;
+    }
+
+    public void EnterPiece(GamePiece gamePiece)
+    {
+        enterPiece = gamePiece;
+    }
+
+    public void ReleasePiece()
+    {
+        if (IsAdjacent(pressPiece, enterPiece))
+        {
+            SwapPieces(pressPiece, enterPiece);
+        }
+    }
+
 }
