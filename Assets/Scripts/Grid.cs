@@ -8,6 +8,7 @@ public class Grid : MonoBehaviour {
 	{
         EMPTY,
 		NORMAL,
+        BUBBLE,
 		COUNT,
 	};
 
@@ -27,6 +28,7 @@ public class Grid : MonoBehaviour {
 
 	private Dictionary<PieceType, GameObject> piecePrefabDict;
     private GamePiece[,] gamePieces;
+    private bool reverse = false;
 
 	// Use this for initialization
 	void Start () {
@@ -48,6 +50,21 @@ public class Grid : MonoBehaviour {
                 SpawnGamePiece(x, y, PieceType.EMPTY);
             }
 		}
+
+        Destroy(gamePieces[4, 4].gameObject);
+        SpawnGamePiece(4, 4, PieceType.BUBBLE);
+
+        Destroy(gamePieces[3, 4].gameObject);
+        SpawnGamePiece(3, 4, PieceType.BUBBLE);
+
+        Destroy(gamePieces[2, 4].gameObject);
+        SpawnGamePiece(2, 4, PieceType.BUBBLE);
+
+        Destroy(gamePieces[5, 4].gameObject);
+        SpawnGamePiece(5, 4, PieceType.BUBBLE);
+
+        Destroy(gamePieces[6, 3].gameObject);
+        SpawnGamePiece(6, 3, PieceType.BUBBLE);
 
         StartCoroutine(fillBoard());
     }
@@ -73,6 +90,7 @@ public class Grid : MonoBehaviour {
     {
         // Continue to fill the board until no piece has moved
         while (fillBoardStep()) {
+            reverse = !reverse;
             yield return new WaitForSeconds(dropSpeed);
         }
     }
@@ -84,8 +102,15 @@ public class Grid : MonoBehaviour {
         // Go through each coordinate and move it down (if possible)
         for(int y = yDim - 2; y >= 0; y--)
         {
-            for(int x = 0; x < xDim; x++)
+            for(int xLoop = 0; xLoop < xDim; xLoop++)
             {
+                int x = xLoop;
+
+                if (reverse)
+                {
+                    x = xDim - xLoop - 1;
+                }
+
                 GamePiece piece = gamePieces[x, y];
                 if (piece.IsMovable())
                 {
@@ -97,6 +122,45 @@ public class Grid : MonoBehaviour {
                         gamePieces[x, y + 1] = piece;
                         SpawnGamePiece(x, y, PieceType.EMPTY);
                         pieceMoved = true;
+                    }else
+                    {
+                        // Diagonal fill
+
+                        GamePiece pieceOnLeft = null;
+                        if (x > 0)
+                        {
+                            pieceOnLeft = gamePieces[x - 1, y];
+                        }
+
+                        GamePiece pieceOnRight = null;
+                        if (x < xDim - 2)
+                        {
+                            pieceOnRight = gamePieces[x + 1, y];
+                        }
+
+                        foreach(GamePiece adjacentPiece in new GamePiece[2] { pieceOnLeft, pieceOnRight })
+                        {
+                            if (adjacentPiece != null)
+                            {
+                                // If the piece on the side is not movable..
+                                if (!adjacentPiece.IsMovable())
+                                {
+                                    pieceBelow = gamePieces[adjacentPiece.X, adjacentPiece.Y + 1];
+                                    // And the piece below the piece on the side is empty
+                                    if (pieceBelow.PieceType == PieceType.EMPTY)
+                                    {
+                                        // Fill It!
+                                        Destroy(pieceBelow.gameObject);
+                                        piece.MovableComponent.Move(adjacentPiece.X, y + 1, dropSpeed);
+                                        gamePieces[adjacentPiece.X, y + 1] = piece;
+                                        SpawnGamePiece(x, y, PieceType.EMPTY);
+                                        pieceMoved = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
                     }
                 }
             }
