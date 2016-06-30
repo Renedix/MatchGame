@@ -62,6 +62,8 @@ public class Grid : MonoBehaviour {
 
         Destroy(gamePieces[2, 4].gameObject);
         SpawnGamePiece(2, 4, PieceType.BUBBLE);
+        Destroy(gamePieces[2, 3].gameObject);
+        SpawnGamePiece(2, 3, PieceType.BUBBLE);
 
         Destroy(gamePieces[5, 4].gameObject);
         SpawnGamePiece(5, 4, PieceType.BUBBLE);
@@ -129,26 +131,18 @@ public class Grid : MonoBehaviour {
                     {
                         // Diagonal fill
 
-                        GamePiece pieceOnLeft = null;
-                        if (x > 0)
-                        {
-                            pieceOnLeft = gamePieces[x - 1, y];
-                        }
+                        GamePiece pieceOnLeft = GetPieceFromDirection(piece, Direction.LEFT);
 
-                        GamePiece pieceOnRight = null;
-                        if (x < xDim - 2)
-                        {
-                            pieceOnRight = gamePieces[x + 1, y];
-                        }
+                        GamePiece pieceOnRight = GetPieceFromDirection(piece, Direction.RIGHT);
 
-                        foreach(GamePiece adjacentPiece in new GamePiece[2] { pieceOnLeft, pieceOnRight })
+                        foreach (GamePiece adjacentPiece in new GamePiece[2] { pieceOnLeft, pieceOnRight })
                         {
                             if (adjacentPiece != null)
                             {
                                 // If the piece on the side is not movable..
                                 if (!adjacentPiece.IsMovable())
                                 {
-                                    pieceBelow = gamePieces[adjacentPiece.X, adjacentPiece.Y + 1];
+                                    pieceBelow = GetPieceFromDirection(adjacentPiece,Direction.DOWN);
                                     // And the piece below the piece on the side is empty
                                     if (pieceBelow.PieceType == PieceType.EMPTY)
                                     {
@@ -210,14 +204,31 @@ public class Grid : MonoBehaviour {
     {
         if (piece1.IsMovable() && piece2.IsMovable())
         {
+
             int piece1X = piece1.X;
             int piece1Y = piece1.Y;
 
-            gamePieces[piece1X, piece1X] = piece2;
-            gamePieces[piece2.X, piece2.Y] = piece1;
-
             piece1.MovableComponent.Move(piece2.X, piece2.Y, pieceMovement);
             piece2.MovableComponent.Move(piece1X, piece1Y, pieceMovement);
+
+            gamePieces[piece1.X, piece1.Y] = piece1;
+            gamePieces[piece2.X, piece2.Y] = piece2;
+
+            List<GamePiece> piece1Matches = GetMatch(piece1);
+            List<GamePiece> piece2Matches = GetMatch(piece2);
+
+            // If no possible matches, revert!
+            if (piece1Matches.Count ==0 && piece2Matches.Count == 0){
+                piece1X = piece1.X;
+                piece1Y = piece1.Y;
+
+                piece1.MovableComponent.Move(piece2.X, piece2.Y, pieceMovement);
+                piece2.MovableComponent.Move(piece1X, piece1Y, pieceMovement);
+
+                gamePieces[piece1.X, piece1.Y] = piece1;
+                gamePieces[piece2.X, piece2.Y] = piece2;
+            }
+
         }
         
     }
@@ -238,6 +249,149 @@ public class Grid : MonoBehaviour {
         {
             SwapPieces(pressPiece, enterPiece);
         }
+    }
+
+    private enum Direction {
+        UP,
+        DOWN,
+        LEFT,
+        RIGHT
+    };
+
+    private GamePiece GetPieceFromDirection(GamePiece piece, Direction direction)
+    {
+        if (direction == Direction.UP)
+        {
+            if (piece.Y > 0)
+            {
+                return gamePieces[piece.X, piece.Y - 1];
+            }
+        }else if(direction == Direction.RIGHT)
+        {
+            if (piece.X < xDim - 1)
+            {
+                return gamePieces[piece.X + 1, piece.Y];
+            }
+        }else if (direction == Direction.DOWN)
+        {
+            if (piece.Y < yDim - 1)
+            {
+                return gamePieces[piece.X, piece.Y + 1];
+            }
+        }
+        else if(direction == Direction.LEFT)
+        {
+            if (piece.X > 0)
+            {
+                return gamePieces[piece.X - 1, piece.Y];
+            }
+        }
+
+        return null;
+    }
+
+
+    private List<GamePiece> GetMatch(GamePiece piece)
+    {
+        
+        List<GamePiece> matches = new List<GamePiece>();
+        if (piece.IsColored())
+        {
+            GamePiece targetPiece = null;
+            int startX = piece.X;
+            int startY = piece.Y;
+            ColoredPiece.ColorType color = piece.ColoredComponent.Color;
+
+            List<GamePiece> leftPieces = new List<GamePiece>();
+            int x = startX - 1;
+            for (; x >= 0; x--)
+            {
+                targetPiece = gamePieces[x, startY];
+                if (targetPiece.IsColored()
+                    && targetPiece.ColoredComponent.Color == color)
+                {
+                    leftPieces.Add(targetPiece);
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            List<GamePiece> rightPieces = new List<GamePiece>();
+            x = startX + 1;
+            for (; x < xDim; x++)
+            {
+                targetPiece = gamePieces[x, startY];
+                if (targetPiece.IsColored()
+                    && targetPiece.ColoredComponent.Color == color)
+                {
+                    rightPieces.Add(targetPiece);
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            List<GamePiece> upPieces = new List<GamePiece>();
+            int y = startY - 1;
+            for (; y >= 0; y--)
+            {
+                targetPiece = gamePieces[startX, y];
+                if (targetPiece.IsColored()
+                    && targetPiece.ColoredComponent.Color == color)
+                {
+                    upPieces.Add(targetPiece);
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            List<GamePiece> downPieces = new List<GamePiece>();
+            y = startY + 1;
+            for (; y < yDim; y++)
+            {
+                targetPiece = gamePieces[startX, y];
+                if (targetPiece.IsColored()
+                    && targetPiece.ColoredComponent.Color == color)
+                {
+                    downPieces.Add(targetPiece);
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            // If there is more than 1 matching piece, then we have a line!
+
+            // Horizontal Line
+            if ((rightPieces.Count + leftPieces.Count) > 1)
+            {
+                matches.AddRange(rightPieces);
+                matches.AddRange(leftPieces);
+            }
+
+            // Veritcal line
+            if ((upPieces.Count + downPieces.Count) > 1)
+            {
+                matches.AddRange(upPieces);
+                matches.AddRange(downPieces);
+            }
+
+        }
+
+        return matches;
+    }
+
+    private List<GamePiece> GetMatchingPiecesInDirection(GamePiece piece, ColoredPiece.ColorType color, Direction direction)
+    {
+        List<GamePiece> pieces = new List<GamePiece>();
+        
+        return pieces;
     }
 
 }
