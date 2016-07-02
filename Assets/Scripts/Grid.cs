@@ -71,7 +71,7 @@ public class Grid : MonoBehaviour {
         Destroy(gamePieces[6, 3].gameObject);
         SpawnGamePiece(6, 3, PieceType.BUBBLE);
 
-        StartCoroutine(fillBoard());
+        StartCoroutine(FillBoard());
     }
 	
 	public Vector3 GetWorldPosition(int x, int y)
@@ -91,16 +91,27 @@ public class Grid : MonoBehaviour {
         return gamePieces[x, y];
     }
 
-    IEnumerator fillBoard()
+    IEnumerator FillBoard()
     {
-        // Continue to fill the board until no piece has moved
-        while (fillBoardStep()) {
-            reverse = !reverse;
+        bool needsFilling = true;
+
+        while (needsFilling)
+        {
             yield return new WaitForSeconds(pieceMovement);
+            // Continue to fill the board until no piece has moved
+            while (FillBoardStep())
+            {
+                reverse = !reverse;
+                yield return new WaitForSeconds(pieceMovement);
+            }
+
+            needsFilling = RemoveAnyMatchingPieces();
         }
+        
+            
     }
 
-    private bool fillBoardStep()
+    private bool FillBoardStep()
     {
         bool pieceMoved = false;
 
@@ -214,11 +225,12 @@ public class Grid : MonoBehaviour {
             gamePieces[piece1.X, piece1.Y] = piece1;
             gamePieces[piece2.X, piece2.Y] = piece2;
 
-            List<GamePiece> piece1Matches = GetMatch(piece1);
-            List<GamePiece> piece2Matches = GetMatch(piece2);
-
-            // If no possible matches, revert!
-            if (piece1Matches.Count ==0 && piece2Matches.Count == 0){
+            if (GetMatch(piece1).Count>0 || GetMatch(piece2).Count > 0)
+            {
+                StartCoroutine(FillBoard());
+            }
+            else
+            {
                 piece1X = piece1.X;
                 piece1Y = piece1.Y;
 
@@ -382,16 +394,53 @@ public class Grid : MonoBehaviour {
                 matches.AddRange(downPieces);
             }
 
+            if (matches.Count > 0)
+            {
+                matches.Add(piece);
+            }
+
         }
 
         return matches;
     }
 
-    private List<GamePiece> GetMatchingPiecesInDirection(GamePiece piece, ColoredPiece.ColorType color, Direction direction)
+    private bool RemoveAnyMatchingPieces()
     {
-        List<GamePiece> pieces = new List<GamePiece>();
-        
-        return pieces;
+        bool piecesRemoved = false;
+
+        for(int x = 0; x < xDim; x++)
+        {
+            for(int y = 0;y<yDim;y++)
+            {
+                if (gamePieces[x, y].IsRemovable())
+                {
+                    List<GamePiece> pieces = GetMatch(gamePieces[x, y]);
+                    if (pieces.Count > 0)
+                    {
+                        foreach (GamePiece aPiece in pieces)
+                        {
+                            if (ClearPiece(aPiece.X, aPiece.Y))
+                            {
+                                piecesRemoved = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return piecesRemoved;
+    }
+
+    public bool ClearPiece(int x, int y)
+    {
+        if (gamePieces[x,y].IsRemovable() && !gamePieces[x, y].RemovableComponent.IsBeingRemoved)
+        {
+            gamePieces[x, y].RemovableComponent.ClearPiece();
+            SpawnGamePiece(x, y, PieceType.EMPTY);
+            return true;
+        }
+        return false;
     }
 
 }
