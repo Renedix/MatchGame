@@ -8,6 +8,7 @@ public class Grid : MonoBehaviour {
 	{
         EMPTY,
 		NORMAL,
+        BUBBLE,
 		COUNT,
 	};
 
@@ -20,12 +21,17 @@ public class Grid : MonoBehaviour {
 
 	public int xDim;
 	public int yDim;
+    public float pieceMovement;
 
 	public PiecePrefab[] piecePrefabs;
 	public GameObject backgroundPrefab;
 
 	private Dictionary<PieceType, GameObject> piecePrefabDict;
     private GamePiece[,] gamePieces;
+    private bool reverse = false;
+
+    private GamePiece pressPiece;
+    private GamePiece enterPiece;
 
 	// Use this for initialization
 	void Start () {
@@ -48,7 +54,24 @@ public class Grid : MonoBehaviour {
             }
 		}
 
-        fillBoard();
+        Destroy(gamePieces[4, 4].gameObject);
+        SpawnGamePiece(4, 4, PieceType.BUBBLE);
+
+        Destroy(gamePieces[3, 4].gameObject);
+        SpawnGamePiece(3, 4, PieceType.BUBBLE);
+
+        Destroy(gamePieces[2, 4].gameObject);
+        SpawnGamePiece(2, 4, PieceType.BUBBLE);
+        Destroy(gamePieces[2, 3].gameObject);
+        SpawnGamePiece(2, 3, PieceType.BUBBLE);
+
+        Destroy(gamePieces[5, 4].gameObject);
+        SpawnGamePiece(5, 4, PieceType.BUBBLE);
+
+        Destroy(gamePieces[6, 3].gameObject);
+        SpawnGamePiece(6, 3, PieceType.BUBBLE);
+
+        StartCoroutine(FillBoard());
     }
 	
 	public Vector3 GetWorldPosition(int x, int y)
@@ -68,31 +91,84 @@ public class Grid : MonoBehaviour {
         return gamePieces[x, y];
     }
 
-    private void fillBoard()
+    IEnumerator FillBoard()
     {
-        // Continue to fill the board until no piece has moved
-        while (fillBoardStep()) { }
+        bool needsFilling = true;
+
+        while (needsFilling)
+        {
+            yield return new WaitForSeconds(pieceMovement);
+            // Continue to fill the board until no piece has moved
+            while (FillBoardStep())
+            {
+                reverse = !reverse;
+                yield return new WaitForSeconds(pieceMovement);
+            }
+
+            needsFilling = RemoveAnyMatchingPieces();
+        }
+        
+            
     }
 
-    private bool fillBoardStep()
+    private bool FillBoardStep()
     {
         bool pieceMoved = false;
 
         // Go through each coordinate and move it down (if possible)
         for(int y = yDim - 2; y >= 0; y--)
         {
-            for(int x = 0; x < xDim; x++)
+            for(int xLoop = 0; xLoop < xDim; xLoop++)
             {
+                int x = xLoop;
+
+                if (reverse)
+                {
+                    x = xDim - xLoop - 1;
+                }
+
                 GamePiece piece = gamePieces[x, y];
                 if (piece.IsMovable())
                 {
                     GamePiece pieceBelow = gamePieces[x, y + 1];
                     if (pieceBelow.PieceType == PieceType.EMPTY)
                     {
-                        piece.MovableComponent.Move(x, y + 1);
+                        Destroy(pieceBelow.gameObject);
+                        piece.MovableComponent.Move(x, y + 1,pieceMovement);
                         gamePieces[x, y + 1] = piece;
                         SpawnGamePiece(x, y, PieceType.EMPTY);
                         pieceMoved = true;
+                    }else
+                    {
+                        // Diagonal fill
+
+                        GamePiece pieceOnLeft = GetPieceFromDirection(piece, Direction.LEFT);
+
+                        GamePiece pieceOnRight = GetPieceFromDirection(piece, Direction.RIGHT);
+
+                        foreach (GamePiece adjacentPiece in new GamePiece[2] { pieceOnLeft, pieceOnRight })
+                        {
+                            if (adjacentPiece != null)
+                            {
+                                // If the piece on the side is not movable..
+                                if (!adjacentPiece.IsMovable())
+                                {
+                                    pieceBelow = GetPieceFromDirection(adjacentPiece,Direction.DOWN);
+                                    // And the piece below the piece on the side is empty
+                                    if (pieceBelow.PieceType == PieceType.EMPTY)
+                                    {
+                                        // Fill It!
+                                        Destroy(pieceBelow.gameObject);
+                                        piece.MovableComponent.Move(adjacentPiece.X, y + 1, pieceMovement);
+                                        gamePieces[adjacentPiece.X, y + 1] = piece;
+                                        SpawnGamePiece(x, y, PieceType.EMPTY);
+                                        pieceMoved = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
                     }
                 }
             }
@@ -105,6 +181,7 @@ public class Grid : MonoBehaviour {
 
             if (topGamePiece.PieceType == PieceType.EMPTY)
             {
+                Destroy(topGamePiece.gameObject);
                 // Spawn new piece
                 GameObject newPiece = (GameObject)Instantiate(piecePrefabDict[PieceType.NORMAL], GetWorldPosition(x, -1), Quaternion.identity);
                 // This new piece is a child of the grid
@@ -117,7 +194,7 @@ public class Grid : MonoBehaviour {
                 // Set to random color
                 gamePieces[x, 0].ColoredComponent.SetColor((ColoredPiece.ColorType)Random.Range(0, gamePieces[x, 0].ColoredComponent.NumberOfColors()));
                 // Move the piece to the first row
-                gamePieces[x, 0].MovableComponent.Move(x, 0);
+                gamePieces[x, 0].MovableComponent.Move(x, 0, pieceMovement);
 
                 pieceMoved = true;
             }
@@ -125,4 +202,245 @@ public class Grid : MonoBehaviour {
 
         return pieceMoved;
     }
+
+
+    public bool IsAdjacent(GamePiece piece1, GamePiece piece2)
+    {
+        return (piece1.X == piece2.X && (piece1.Y == piece2.Y - 1 || piece1.Y == piece2.Y + 1))
+                ||
+                (piece1.Y == piece2.Y && (piece1.X == piece2.X - 1 || piece1.X == piece2.X + 1));
+    }
+
+    public void SwapPieces(GamePiece piece1, GamePiece piece2)
+    {
+        if (piece1.IsMovable() && piece2.IsMovable())
+        {
+
+            int piece1X = piece1.X;
+            int piece1Y = piece1.Y;
+
+            piece1.MovableComponent.Move(piece2.X, piece2.Y, pieceMovement);
+            piece2.MovableComponent.Move(piece1X, piece1Y, pieceMovement);
+
+            gamePieces[piece1.X, piece1.Y] = piece1;
+            gamePieces[piece2.X, piece2.Y] = piece2;
+
+            if (GetMatch(piece1).Count>0 || GetMatch(piece2).Count > 0)
+            {
+                StartCoroutine(FillBoard());
+            }
+            else
+            {
+                piece1X = piece1.X;
+                piece1Y = piece1.Y;
+
+                piece1.MovableComponent.Move(piece2.X, piece2.Y, pieceMovement);
+                piece2.MovableComponent.Move(piece1X, piece1Y, pieceMovement);
+
+                gamePieces[piece1.X, piece1.Y] = piece1;
+                gamePieces[piece2.X, piece2.Y] = piece2;
+            }
+
+        }
+        
+    }
+
+    public void PressPiece(GamePiece gamePiece)
+    {
+        pressPiece = gamePiece;
+    }
+
+    public void EnterPiece(GamePiece gamePiece)
+    {
+        enterPiece = gamePiece;
+    }
+
+    public void ReleasePiece()
+    {
+        if (IsAdjacent(pressPiece, enterPiece))
+        {
+            SwapPieces(pressPiece, enterPiece);
+        }
+    }
+
+    private enum Direction {
+        UP,
+        DOWN,
+        LEFT,
+        RIGHT
+    };
+
+    private GamePiece GetPieceFromDirection(GamePiece piece, Direction direction)
+    {
+        if (direction == Direction.UP)
+        {
+            if (piece.Y > 0)
+            {
+                return gamePieces[piece.X, piece.Y - 1];
+            }
+        }else if(direction == Direction.RIGHT)
+        {
+            if (piece.X < xDim - 1)
+            {
+                return gamePieces[piece.X + 1, piece.Y];
+            }
+        }else if (direction == Direction.DOWN)
+        {
+            if (piece.Y < yDim - 1)
+            {
+                return gamePieces[piece.X, piece.Y + 1];
+            }
+        }
+        else if(direction == Direction.LEFT)
+        {
+            if (piece.X > 0)
+            {
+                return gamePieces[piece.X - 1, piece.Y];
+            }
+        }
+
+        return null;
+    }
+
+
+    private List<GamePiece> GetMatch(GamePiece piece)
+    {
+        
+        List<GamePiece> matches = new List<GamePiece>();
+        if (piece.IsColored())
+        {
+            GamePiece targetPiece = null;
+            int startX = piece.X;
+            int startY = piece.Y;
+            ColoredPiece.ColorType color = piece.ColoredComponent.Color;
+
+            List<GamePiece> leftPieces = new List<GamePiece>();
+            int x = startX - 1;
+            for (; x >= 0; x--)
+            {
+                targetPiece = gamePieces[x, startY];
+                if (targetPiece.IsColored()
+                    && targetPiece.ColoredComponent.Color == color)
+                {
+                    leftPieces.Add(targetPiece);
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            List<GamePiece> rightPieces = new List<GamePiece>();
+            x = startX + 1;
+            for (; x < xDim; x++)
+            {
+                targetPiece = gamePieces[x, startY];
+                if (targetPiece.IsColored()
+                    && targetPiece.ColoredComponent.Color == color)
+                {
+                    rightPieces.Add(targetPiece);
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            List<GamePiece> upPieces = new List<GamePiece>();
+            int y = startY - 1;
+            for (; y >= 0; y--)
+            {
+                targetPiece = gamePieces[startX, y];
+                if (targetPiece.IsColored()
+                    && targetPiece.ColoredComponent.Color == color)
+                {
+                    upPieces.Add(targetPiece);
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            List<GamePiece> downPieces = new List<GamePiece>();
+            y = startY + 1;
+            for (; y < yDim; y++)
+            {
+                targetPiece = gamePieces[startX, y];
+                if (targetPiece.IsColored()
+                    && targetPiece.ColoredComponent.Color == color)
+                {
+                    downPieces.Add(targetPiece);
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            // If there is more than 1 matching piece, then we have a line!
+
+            // Horizontal Line
+            if ((rightPieces.Count + leftPieces.Count) > 1)
+            {
+                matches.AddRange(rightPieces);
+                matches.AddRange(leftPieces);
+            }
+
+            // Veritcal line
+            if ((upPieces.Count + downPieces.Count) > 1)
+            {
+                matches.AddRange(upPieces);
+                matches.AddRange(downPieces);
+            }
+
+            if (matches.Count > 0)
+            {
+                matches.Add(piece);
+            }
+
+        }
+
+        return matches;
+    }
+
+    private bool RemoveAnyMatchingPieces()
+    {
+        bool piecesRemoved = false;
+
+        for(int x = 0; x < xDim; x++)
+        {
+            for(int y = 0;y<yDim;y++)
+            {
+                if (gamePieces[x, y].IsRemovable())
+                {
+                    List<GamePiece> pieces = GetMatch(gamePieces[x, y]);
+                    if (pieces.Count > 0)
+                    {
+                        foreach (GamePiece aPiece in pieces)
+                        {
+                            if (ClearPiece(aPiece.X, aPiece.Y))
+                            {
+                                piecesRemoved = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return piecesRemoved;
+    }
+
+    public bool ClearPiece(int x, int y)
+    {
+        if (gamePieces[x,y].IsRemovable() && !gamePieces[x, y].RemovableComponent.IsBeingRemoved)
+        {
+            gamePieces[x, y].RemovableComponent.ClearPiece();
+            SpawnGamePiece(x, y, PieceType.EMPTY);
+            return true;
+        }
+        return false;
+    }
+
 }
