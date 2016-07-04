@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using System;
 
 public class Grid : MonoBehaviour {
 
@@ -192,7 +193,7 @@ public class Grid : MonoBehaviour {
                 // Initialize the game object itself
                 gamePieces[x, 0].Init(x, -1, this, PieceType.NORMAL);
                 // Set to random color
-                gamePieces[x, 0].ColoredComponent.SetColor((ColoredPiece.ColorType)Random.Range(0, gamePieces[x, 0].ColoredComponent.NumberOfColors()));
+                gamePieces[x, 0].ColoredComponent.SetColor((ColoredPiece.ColorType)UnityEngine.Random.Range(0, gamePieces[x, 0].ColoredComponent.NumberOfColors()));
                 // Move the piece to the first row
                 gamePieces[x, 0].MovableComponent.Move(x, 0, pieceMovement);
 
@@ -438,9 +439,31 @@ public class Grid : MonoBehaviour {
         {
             gamePieces[x, y].RemovableComponent.ClearPiece();
             SpawnGamePiece(x, y, PieceType.EMPTY);
+
+            RemoveAnyObstacles(gamePieces[x,y]);
+
             return true;
         }
         return false;
     }
 
+    private void RemoveAnyObstacles(GamePiece piece)
+    {
+
+        List<GamePiece> potentialObstaclesToRemove = new List<GamePiece>();
+        potentialObstaclesToRemove.Add(GetPieceFromDirection(piece, Direction.LEFT));
+        potentialObstaclesToRemove.Add(GetPieceFromDirection(piece, Direction.RIGHT));
+        potentialObstaclesToRemove.Add(GetPieceFromDirection(piece, Direction.UP));
+        potentialObstaclesToRemove.Add(GetPieceFromDirection(piece, Direction.DOWN));
+
+        foreach(GamePiece aPiece in potentialObstaclesToRemove)
+        {
+            if (aPiece != null && aPiece.IsRemovable() && aPiece.PieceType == PieceType.BUBBLE)
+            {
+                gamePieces[aPiece.X, aPiece.Y].RemovableComponent.ClearPiece();
+                SpawnGamePiece(aPiece.X, aPiece.Y, PieceType.EMPTY);
+            }
+        }
+
+    }
 }
