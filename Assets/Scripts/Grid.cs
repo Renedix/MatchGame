@@ -10,6 +10,8 @@ public class Grid : MonoBehaviour {
         EMPTY,
 		NORMAL,
         BUBBLE,
+        ROW_CLEARING,
+        COLUMN_CLEARING,
 		COUNT,
 	};
 
@@ -108,8 +110,7 @@ public class Grid : MonoBehaviour {
 
             needsFilling = RemoveAnyMatchingPieces();
         }
-        
-            
+
     }
 
     private bool FillBoardStep()
@@ -228,6 +229,9 @@ public class Grid : MonoBehaviour {
 
             if (GetMatch(piece1).Count>0 || GetMatch(piece2).Count > 0)
             {
+                RemoveAnyMatchingPieces();
+                enterPiece = null;
+                pressPiece = null;
                 StartCoroutine(FillBoard());
             }
             else
@@ -415,15 +419,60 @@ public class Grid : MonoBehaviour {
             {
                 if (gamePieces[x, y].IsRemovable())
                 {
-                    List<GamePiece> pieces = GetMatch(gamePieces[x, y]);
-                    if (pieces.Count > 0)
+                    List<GamePiece> matchingPieces = GetMatch(gamePieces[x, y]);
+                    if (matchingPieces.Count > 0)
                     {
-                        foreach (GamePiece aPiece in pieces)
+
+                        PieceType specialPieceType = PieceType.COUNT;
+                        int newSpecialPieceX = 0;
+                        int newSpecialPieceY = 0;
+
+                        if (matchingPieces.Count == 4)
+                        {
+                            if (pressPiece!=null && enterPiece != null)
+                            {
+                                // We know the direction of the piece
+                                if (pressPiece.X == enterPiece.Y)
+                                {
+                                    // Same X means different Y, COLUMN PIECE!
+                                    specialPieceType = PieceType.COLUMN_CLEARING;
+                                }
+                                else
+                                {
+                                    // Same Y means different X, ROW PIECE!
+                                    specialPieceType = PieceType.ROW_CLEARING;
+                                }
+                            }
+                            else
+                            {
+                                // randomly set the direction of the special piece
+                                specialPieceType = (PieceType)UnityEngine.Random.Range(0, 1) + 3;
+
+                                // If we did not swap the piece, select the first coordinate on the matching pieces to replace with a special piece
+                                newSpecialPieceX = matchingPieces[0].X;
+                                newSpecialPieceY = matchingPieces[0].Y;
+                            }
+                        }
+
+                        foreach (GamePiece aPiece in matchingPieces)
                         {
                             if (ClearPiece(aPiece.X, aPiece.Y))
                             {
                                 piecesRemoved = true;
+                                
+                                if (aPiece == pressPiece || aPiece == enterPiece)
+                                {
+                                    // If we swapped a piece, then we need to place one of the swapped pieces with a special piece!
+                                    newSpecialPieceX = aPiece.X;
+                                    newSpecialPieceY = aPiece.Y;
+                                }
                             }
+                        }
+
+                        if (specialPieceType != PieceType.COUNT)
+                        {
+                            SpawnGamePiece(newSpecialPieceX, newSpecialPieceY, specialPieceType);
+                            gamePieces[newSpecialPieceX, newSpecialPieceY].ColoredComponent.SetColor(matchingPieces[0].ColoredComponent.Color);
                         }
                     }
                 }
@@ -465,5 +514,21 @@ public class Grid : MonoBehaviour {
             }
         }
 
+    }
+
+    public void RemovePiecesInColumn(int x)
+    {
+        for (int y = 0; y < yDim; y++)
+        {
+            ClearPiece(x, y);
+        }
+    }
+
+    public void RemovePiecesInRow(int y)
+    {
+        for (int x = 0; x < xDim; x++)
+        {
+            ClearPiece(x, y);
+        }
     }
 }
